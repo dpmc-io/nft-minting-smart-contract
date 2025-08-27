@@ -260,7 +260,9 @@ contract CERTIFICATE is ERC721, Ownable, ReentrancyGuard {
     mapping(uint256 => uint256) public timeStamp;
     mapping(address => uint256) public ownershipCount;
     mapping(bytes => bool) public usedSig;
+    mapping(address => bool) public isAdmin;
 
+    event AdminUpdated(address admin, bool isAdmin);
     event Paused(address account);
     event Unpaused(address account);
     event AllowedAddressUpdated(address allowedAddress, bool isAllowed);
@@ -323,6 +325,11 @@ contract CERTIFICATE is ERC721, Ownable, ReentrancyGuard {
         isTransferRestricted = true;
     }
 
+    modifier onlyAdmin() {
+        require(isAdmin[msg.sender] || msg.sender == owner(), "Admin only");
+        _;
+    }
+
     function splitSignature(
         bytes memory sig
     ) internal pure returns (uint8, bytes32, bytes32) {
@@ -353,45 +360,50 @@ contract CERTIFICATE is ERC721, Ownable, ReentrancyGuard {
         return ecrecover(_hashedMessage, v, r, s);
     }
 
-    function updateMaxOwnership(uint256 newValue) public onlyOwner {
+    function addOrRemoveAdmin(address _admin, bool _true) public onlyOwner {
+        isAdmin[_admin] = _true;
+        emit AdminUpdated(_admin, _true);
+    }
+
+    function updateMaxOwnership(uint256 newValue) public onlyAdmin {
         uint256 oldValue = maxOwnership;
         maxOwnership = newValue;
         emit MintParameterUpdated("MaxOwnership", oldValue, newValue);
     }
 
-    function pause() external onlyOwner {
+    function pause() external onlyAdmin {
         require(!paused, "Contract is already paused");
         paused = true;
         emit Paused(msg.sender);
     }
 
-    function unpause() external onlyOwner {
+    function unpause() external onlyAdmin {
         require(paused, "Contract is not paused");
         paused = false;
         emit Unpaused(msg.sender);
     }
 
-    function updatePaymentToken(address newPaymentToken) external onlyOwner {
+    function updatePaymentToken(address newPaymentToken) external onlyAdmin {
         emit PaymentTokenAddressUpdated(paymentToken, newPaymentToken);
         paymentToken = newPaymentToken;
     }
 
-    function updatePaymentPool(address newPaymentPool) external onlyOwner {
+    function updatePaymentPool(address newPaymentPool) external onlyAdmin {
         emit PaymentPoolAddressUpdated(paymentPool, newPaymentPool);
         paymentPool = newPaymentPool;
     }
 
-    function updateRedeem(address newRedeem) external onlyOwner {
+    function updateRedeem(address newRedeem) external onlyAdmin {
         emit RedeemUpdated(redeem, newRedeem);
         redeem = newRedeem;
     }
 
-    function updateStaking(address newStaking) external onlyOwner {
+    function updateStaking(address newStaking) external onlyAdmin {
         emit StakingUpdated(staking, newStaking);
         staking = newStaking;
     }
 
-    function updateMinMintAmount(uint256 newValue) external onlyOwner {
+    function updateMinMintAmount(uint256 newValue) external onlyAdmin {
         require(
             maxToMint == 0 || newValue <= maxToMint,
             "minToMint cannot exceed maxToMint"
@@ -401,7 +413,7 @@ contract CERTIFICATE is ERC721, Ownable, ReentrancyGuard {
         minToMint = newValue;
     }
 
-    function updateMaxMintAmount(uint256 newValue) external onlyOwner {
+    function updateMaxMintAmount(uint256 newValue) external onlyAdmin {
         require(
             newValue == 0 || newValue >= minToMint,
             "maxToMint must be zero (unlimited) or greater than minToMint"
@@ -411,7 +423,7 @@ contract CERTIFICATE is ERC721, Ownable, ReentrancyGuard {
         maxToMint = newValue;
     }
 
-    function setAllowedAddress(address allowedAddress) external onlyOwner {
+    function setAllowedAddress(address allowedAddress) external onlyAdmin {
         allowedAddresses[allowedAddress] = true;
         emit AllowedAddressUpdated(allowedAddress, true);
     }
@@ -419,7 +431,7 @@ contract CERTIFICATE is ERC721, Ownable, ReentrancyGuard {
     function updateAllowedAddress(
         address oldAddress,
         address newAddress
-    ) external onlyOwner {
+    ) external onlyAdmin {
         require(allowedAddresses[oldAddress], "Old address is not allowed");
         allowedAddresses[oldAddress] = false;
         allowedAddresses[newAddress] = true;
@@ -427,7 +439,7 @@ contract CERTIFICATE is ERC721, Ownable, ReentrancyGuard {
         emit AllowedAddressUpdated(newAddress, true);
     }
 
-    function removeAllowedAddress(address addressToRemove) external onlyOwner {
+    function removeAllowedAddress(address addressToRemove) external onlyAdmin {
         require(
             allowedAddresses[addressToRemove],
             "Address to remove is not allowed"
@@ -436,7 +448,7 @@ contract CERTIFICATE is ERC721, Ownable, ReentrancyGuard {
         emit AllowedAddressUpdated(addressToRemove, false);
     }
 
-    function updateTransferRestriction(bool isRestricted) external onlyOwner {
+    function updateTransferRestriction(bool isRestricted) external onlyAdmin {
         emit TransferRestrictionUpdated(isTransferRestricted, isRestricted);
         isTransferRestricted = isRestricted;
     }
